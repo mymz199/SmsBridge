@@ -53,7 +53,7 @@
 方式	需要什么	适合
 公共中继（默认）	两端都能上网 + 同一个通信密钥	异地使用、零配置、零注册
 局域网直连	两台设备在同一 Wi-Fi	不想走第三方服务器
-text
+
                    ┌──────────────────────────────┐
    转发端 App  ───▶ │  公共 MQTT Broker (1883)      │ ◀───  接收端 App
    发布 /msg        │  主题由密钥 SHA-256 派生       │      订阅 /msg，回 /ack
@@ -93,7 +93,6 @@ broker.hivemq.com:1883	备用
 设置页已按 ① 通信密钥 / ② 传输方式 / ③ 短信读取 / ④ 运行与通知 / ⑤ 维护与自检 分组。
 
 🗂️ 二、项目结构
-text
 smsbridge/
 ├── build.gradle / settings.gradle / gradle.properties
 ├── .github/workflows/android.yml          # 云端自动打 APK
