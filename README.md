@@ -380,7 +380,7 @@ Android 12 起限制了后台启动前台服务，`BOOT_COMPLETED` 下 `dataSync
 
 ---
 
-## 🖥️ 七、Windows 接收端（从此版本开始提供）
+## 🖥️ 七、Windows 接收端（从 2.64.1.0.0 版本开始提供）
 
 > [!TIP]
 > **Starting from this version, a Windows client is available.**
