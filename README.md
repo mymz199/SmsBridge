@@ -53,7 +53,7 @@
 - 每个页面都有显式的「返回」按钮，标题栏也有返回箭头，**没有返回键的设备也能正常退出**。
 
 > [!TIP]
-> 从本版本开始提供 **Windows 接收端**：`Starting from this version, a Windows client is available.` 详见下文 **“七、Windows 接收端”**。
+> 从 2.64.1.0.0 版本开始提供 **Windows 接收端**：`Starting from this version, a Windows client is available.` 详见下文 **“七、Windows 接收端”**。
 
 ---
 
