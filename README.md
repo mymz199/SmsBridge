@@ -28,10 +28,9 @@
 - [三、使用步骤](#-三使用步骤)
 - [四、协议与安全](#-四协议与安全)
 - [五、免费更新（GitHub Releases，零成本）](#-五免费更新github-releases零成本)
-- [六、编译](#️-六编译)
-- [七、常见问题](#-七常见问题)
-- [八、Windows 接收端（从此版本开始提供）](#️-八windows-接收端从此版本开始提供)
-- [九、声明](#-九声明)
+- [六、常见问题](#-六常见问题)
+- [七、Windows 接收端（从此版本开始提供）](#️-七windows-接收端从此版本开始提供)
+- [八、声明](#-八声明)
 
 </details>
 
@@ -54,7 +53,25 @@
 - 每个页面都有显式的「返回」按钮，标题栏也有返回箭头，**没有返回键的设备也能正常退出**。
 
 > [!TIP]
-> 从 v2.64.1.0.0 版本开始提供 **Windows 接收端**：`Starting from this version, a Windows client is available.` 详见下文 **“八、Windows 接收端”**。
+> 从本版本开始提供 **Windows 接收端**：`Starting from this version, a Windows client is available.` 详见下文 **“七、Windows 接收端”**。
+
+---
+
+### ⚡ 一眼看懂（三步跑通）
+
+```text
+① 手机 A（插卡）      选「转发端」→ 填通信密钥 → 启动服务
+② 手机 B / Windows    选「接收端」→ 填同一个密钥 → 启动接收
+③ 给手机 A 发条短信   → 手机 B / Windows 弹通知，A 显示「已送达」
+```
+
+状态提示长这样：
+
+```text
+[转发端]  中继在线 · 对方在线 · 已送达
+[接收端]  中继在线 · 等待新消息
+[Windows] 中继在线 · 对方在线 · 托盘已就绪
+```
 
 ---
 
@@ -101,6 +118,12 @@
 - 即使超过 Broker 的会话保留时间，发送端仍会把未确认的消息重新发一遍。
 
 > **结论**：所以「离线后上线也能收到」是 **Broker 排队 + 应用层重试** 的双保险。
+
+```text
+接收端离线 ──▶ Broker 排队 ──▶ 接收端上线 ──▶ 自动补发 ──▶ 回 ACK
+                  ▲                                      │
+                  └────── 发送端 30s→10min 重试兜底 ◀────┘
+```
 
 ---
 
@@ -163,6 +186,13 @@ smsbridge/
 > [!WARNING]
 > 中继主题由密钥派生：**密钥不同 = 主题不同 = 互相收不到**；密钥相同 = 自动配对。两端密钥必须完全一致。
 
+密钥指纹示例（两端必须一致）：
+
+```text
+本机密钥指纹：B4D1-C6F8
+对端密钥指纹：B4D1-C6F8   ✅ 一致
+```
+
 ### 3. 两端都点「启动服务」
 
 状态显示：
@@ -196,8 +226,12 @@ smsbridge/
 3. 选中「加强模式」或点「授权 Shizuku 读取短信」时，会**自动弹出 Shizuku 授权窗口**，点「允许」即可；
 4. 保存（会自动重启服务）。
 
-原理：Shizuku 让本应用以 shell(uid 2000) 或 root 身份执行  
-`content query --uri content://sms/inbox --where "_id > 游标"`。  
+原理：Shizuku 让本应用以 shell(uid 2000) 或 root 身份执行：
+
+```bash
+content query --uri content://sms/inbox --where "_id > 游标"
+```
+
 AOSP 的 Shell 账号本身就持有 `READ_SMS`，所以系统拦了广播也照样能读。应用每 8 秒轮询一次，只转发游标之后的新短信。
 
 > [!TIP]
@@ -210,6 +244,11 @@ AOSP 的 Shell 账号本身就持有 `READ_SMS`，所以系统拦了广播也照
 - 接收端：「监听地址」填 `0.0.0.0`，启动服务；
 - 转发端：「对端地址」填接收端的局域网 IP，端口保持一致；
 - 两端仍用同一个通信密钥。
+
+```text
+转发端 ──TCP 加密连接──▶ 接收端 192.168.1.10:8686
+          （不经过任何第三方）
+```
 
 局域网直连走的是 App 内置的加密 TCP（协议与中继模式完全一致），不经过任何第三方。
 
@@ -237,6 +276,18 @@ AOSP 的 Shell 账号本身就持有 `READ_SMS`，所以系统拦了广播也照
 - 短信在本地 SQLite 里是明文（应用私有目录），传输过程中是密文；
 - 认证/解密失败会被静默丢弃，不会泄露任何信息；
 - 提醒：公共 Broker 是免费测试服务，适合个人自用；对可用性要求高时请自建 MQTT（如 EMQX / Mosquitto），在设置里换地址即可。
+
+示例短信 JSON（加密前的明文结构）：
+
+```json
+{
+  "v": 1,
+  "id": "a1b2c3d4e5f6...",
+  "addr": "+8613800000000",
+  "body": "您的验证码是 123456",
+  "ts": 1730000000000
+}
+```
 
 ---
 
@@ -290,35 +341,7 @@ App 下次检查更新就能看到并一键下载安装。
 
 ---
 
-## 🛠️ 六、编译
-
-### 方式 A：Android Studio
-
-1. 打开 `smsbridge` 目录，等待 Gradle 同步；
-2. `Build → Build Bundle(s)/APK(s) → Build APK(s)`；
-3. APK 在 `app/build/outputs/apk/debug/app-debug.apk`。
-
-### 方式 B：命令行
-
-需要 JDK 11+ 和 Android SDK（`platforms;android-33`、`build-tools;33.0.2`）。
-
-```bash
-cd smsbridge
-gradle assembleDebug
-```
-
-### 方式 C：GitHub Actions
-
-仓库自带 `.github/workflows/android.yml`：`Actions → build → Run workflow`，完成后在 Artifacts 下载。
-
-> [!NOTE]
-> 本工程已用 **JDK 17 + Android SDK 33 + Gradle 7.6.4** 实际编译并 lint 通过（0 error）。  
-> 可直接安装的调试包在项目根目录：**`SmsBridge-2.4-debug.apk`**（minSdk 19）。  
-> 工程在中文路径下也能构建（已加 `android.overridePathCheck=true`）；若个别机器 aapt2 仍报错，复制到纯英文路径再编译。
-
----
-
-## ❓ 七、常见问题
+## ❓ 六、常见问题
 
 **Q：点「发一条测试短信」后切换到接收端，为什么收件箱里没有？**  
 「测试短信」是放进**发件箱**、发给**另一台设备**的，本机切换角色不会把它搬到收件箱。  
@@ -357,7 +380,7 @@ Android 12 起限制了后台启动前台服务，`BOOT_COMPLETED` 下 `dataSync
 
 ---
 
-## 🖥️ 八、Windows 接收端（从此版本开始提供）
+## 🖥️ 七、Windows 接收端（从此版本开始提供）
 
 > [!TIP]
 > **Starting from this version, a Windows client is available.**
@@ -383,6 +406,13 @@ Android 12 起限制了后台启动前台服务，`BOOT_COMPLETED` 下 `dataSync
 
 ### 快速开始（公共中继，推荐）
 
+```text
+① 手机 App      转发端 → 生成/填写通信密钥
+② Windows 端    设置 → 填同一个密钥 → 启动接收
+③ 状态          「中继在线 · 对方在线」= 已配对
+④ 收短信        托盘通知 + 收件箱记录 + 手机显示「已送达」
+```
+
 1. 手机打开原版 App，选择 **转发端**，在设置里生成/填写 **通信密钥**。
 2. Windows 打开 `SmsBridgeReceiver.exe`，进入 **设置**，填入**同一个通信密钥**。
    - 两端的「密钥指纹」必须完全一致（例如 `B4D1-C6F8`）。
@@ -406,6 +436,11 @@ Android 12 起限制了后台启动前台服务，`BOOT_COMPLETED` 下 `dataSync
    - Windows 防火墙首次会询问，请允许 **专用网络**。
 3. 也可以选 **转发端监听**：由 Windows 主动连接手机的 `IP:8686`。
 4. 两端仍需同一个通信密钥；两台设备的系统时间相差不能超过 5 分钟（握手会校验）。
+
+```text
+手机转发端 ──TCP 加密连接──▶ Windows 192.168.1.10:8686
+             （同一 Wi-Fi，不经过第三方）
+```
 
 <details>
 <summary><b>⚙️ 点击展开：Windows 端设置项摘要</b></summary>
@@ -479,26 +514,15 @@ Android 12 起限制了后台启动前台服务，`BOOT_COMPLETED` 下 `dataSync
 
 设置页 → **本机自检**，会依次检查：
 
-1. 本机加解密往返（PBKDF2 + AES-256-GCM）
-2. 错误密钥被拒绝
-3. 本机 TCP 监听 / 握手 / 短信 / ACK
-4. 公共中继连通性（发布 → 中继 → 收回）
+```text
+① 本机加解密往返（PBKDF2 + AES-256-GCM） … 通过
+② 错误密钥被拒绝 … 拒绝（预期）
+③ 本机 TCP 监听 / 握手 / 短信 / ACK … 通过
+④ 公共中继连通性（发布 → 中继 → 收回） … 通过
+```
 
 > [!NOTE]
 > 第 2 步显示「拒绝」是**预期结果**。自检不需要第二台设备。
-
-### 从源码构建
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\build.ps1
-```
-
-- 使用 Windows 自带的 `csc.exe`（.NET Framework 3.5），不需要 Visual Studio / dotnet SDK；
-- 输出到 `dist\SmsBridgeReceiver.exe`；
-- 源码在 `src\`，纯 C# 3 + WinForms，无第三方库。
-
-> [!IMPORTANT]
-> 再次说明：本仓库**不提供 Windows 端源码或 exe 的直接下载**；如需使用，请从你获取到的发布包中自行提取。
 
 ### 与 Android 端的关系
 
@@ -509,7 +533,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 
 ---
 
-## 📜 九、声明
+## 📜 八、声明
 
 - 本项目仅用于个人学习、研究与设备间同步自己的短信，请勿用于侵犯他人隐私或任何违法用途。
 - 应用内《使用须知与免责声明》必须勾选同意后才能使用；修改声明内容时会要求重新同意。
